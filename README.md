@@ -1,6 +1,6 @@
 [![Build Status](https://travis-ci.org/webrtc/apprtc.svg?branch=master)](https://travis-ci.org/webrtc/apprtc)
 
-# AppRTC Demo Code (XirSys - ICE)
+# AppRTC Demo Code (XirSys - FULL)
 
 ## Note
 
