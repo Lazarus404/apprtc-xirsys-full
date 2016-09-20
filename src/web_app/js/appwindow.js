@@ -24,6 +24,7 @@ var loadingParams = {
     return new Promise(function(resolve, reject) {
       trace('Initializing; retrieving params from: ' + roomServer + '/params');
       sendAsyncUrlRequest('GET', roomServer + '/params').then(function(result) {
+        console.log("PARAMS RETURNED", result);
         var serverParams = parseJSON(result);
         var newParams = {};
         if (!serverParams) {

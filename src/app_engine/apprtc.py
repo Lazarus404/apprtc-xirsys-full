@@ -127,14 +127,39 @@ def append_url_arguments(request, link):
 def get_wss_parameters(request):
   wss_host_port_pair = request.get('wshpp')
   wss_tls = request.get('wstls')
+  token = None
 
   if not wss_host_port_pair:
-    # Attempt to get a wss server from the status provided by prober,
-    # if that fails, use fallback value.
-    memcache_client = memcache.Client()
-    wss_active_host = memcache_client.get(constants.WSS_HOST_ACTIVE_HOST_KEY)
-    if wss_active_host in constants.WSS_HOST_PORT_PAIRS:
-      wss_host_port_pair = wss_active_host
+    h = httplib2.Http()
+    
+    headers = {'Content-type': 'application/x-www-form-urlencoded'}
+
+    signal_url = constants.XIRSYS_SIGNALS_LIST_ENDPOINT % (constants.XIRSYS_BASE_URL)
+    resp, content = h.request(signal_url, 
+                              "POST", 
+                              {},
+                              headers=headers)
+    signal_resp = json.loads(content)
+
+    post_data = {'ident': constants.XIRSYS_IDENT,
+                 'secret': constants.XIRSYS_SECRET,
+                 'domain': constants.XIRSYS_DOMAIN,
+                 'application': constants.XIRSYS_APPLICATION,
+                 'room': constants.XIRSYS_ROOM,
+                 'secure': '1' if wss_tls and wss_tls != 'false' else '0'}
+
+    token_url = constants.XIRSYS_TOKEN_ENDPOINT % (constants.XIRSYS_BASE_URL)
+    resp, content = h.request(token_url, 
+                              "POST", 
+                              urllib.urlencode(post_data),
+                              headers=headers)
+    token_resp = json.loads(content)
+
+    if not signal_resp['e'] and not token_resp['e']:
+      data = signal_resp['d']['value']
+      parts = data.split('/')
+      wss_host_port_pair = parts[2]
+      token = token_resp['d']['token']
     else:
       logging.warning(
           'Invalid or no value returned from memcache, using fallback: '
@@ -147,6 +172,11 @@ def get_wss_parameters(request):
   else:
     wss_url = 'wss://' + wss_host_port_pair + '/ws'
     wss_post_url = 'https://' + wss_host_port_pair
+
+  if token is not None:
+    wss_url = wss_url + '/v2/' + token
+    wss_post_url = wss_post_url + '/v2/' + token
+
   return (wss_url, wss_post_url)
 
 def get_version_info():
@@ -606,7 +636,8 @@ class IcePage(webapp2.RequestHandler):
 
     headers = {'Content-type': 'application/x-www-form-urlencoded'}
 
-    resp, content = h.request(constants.XIRSYS_ICE_ENDPOINT, 
+    url = constants.XIRSYS_ICE_ENDPOINT % (constants.XIRSYS_BASE_URL)
+    resp, content = h.request(url, 
                               "POST", 
                               urllib.urlencode(post_data),
                               headers=headers)
